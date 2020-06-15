@@ -80,6 +80,8 @@ class Wcms19_Random_Dog {
 		$this->define_public_hooks();
 		// register widget
 		$this->register_widget();
+		// register ajax actions
+		$this->register_ajax_actions();
 
 	}
 
@@ -193,6 +195,64 @@ class Wcms19_Random_Dog {
 		add_action('widgets_init', function() {
 			register_widget('Wcms19_Random_Dog_Widget');
 		});
+	}
+
+	/* 
+	* Register the the ajax actions.
+	* 
+	* @since	1.0.0
+	*/	
+
+	public function register_ajax_actions() {
+		// register action 'wcms19_random_dog__get'
+		add_action('wp_ajax_wcms19_random_dog__get', [
+			$this,
+			'ajax_wcms19_random_dog__get'
+		]);
+		add_action('wp_ajax_nopriv_wcms19_random_dog__get', [
+			$this,
+			'ajax_wcms19_random_dog__get'
+		]);
+	}
+
+	/* 
+	* Respond to ajax action 'wcms19_random_dog__get'.
+	* 
+	* @since	1.0.0
+	*/
+	
+	public function ajax_wcms19_random_dog__get() {
+		$response = wp_remote_get('https://random.dog/woof.json');
+		if (is_wp_error($response) || wp_remote_retrieve_response_code($response) != 200) {
+			wp_send_json_error([
+				'error_code' => wp_remote_retrieve_response_code($response),
+				'error_msg' =>	wp_remote_retrieve_response_message($response),
+			]);
+		}
+		$body = wp_remote_retrieve_body($response);
+		$content = json_decode($body);
+
+		// 1. Find out filename from url
+		$url_path = parse_url($content->url, PHP_URL_PATH);
+
+		// 2. Find the extension from the filename
+		$file_extension = pathinfo($url_path, PATHINFO_EXTENSION);
+
+		// 3. If extension is 'mp4' or 'ogv' or 'avi', set type to 'video'
+		$video_extension = ['mp4', 'ogv', 'avi'];
+		$file_extension_lowercase = strtolower($file_extension);
+		$is_video = in_array($file_extension_lowercase, $video_extension);
+
+		if ($is_video) {
+			$type = "video";
+		} else {
+			$type = "image";
+		}
+
+		wp_send_json_success([
+			'type' => $type,
+			'src'	=>	$content->url,
+		]);
 	}
 
 	/**
